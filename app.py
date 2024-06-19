@@ -4,11 +4,13 @@ import pickle
 import re
 import pandas as pd
 from datetime import datetime, timedelta
+import os
+import uvicorn
 
 app = FastAPI()
 
 # Load the pre-trained model
-with open("model4.pkl", "rb") as pickle_in:
+with open("C:/Users/menna/app4/model4.pkl", "rb") as pickle_in:
     model = pickle.load(pickle_in)
 
 class ConsumptionRequest(BaseModel):
@@ -73,5 +75,6 @@ async def predict_next_week_consumption(request: ConsumptionRequest):
     return results
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Fetch the PORT environment variable or default to 8000
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
