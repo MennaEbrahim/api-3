@@ -1,14 +1,12 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from flask import Flask, request, jsonify
 import pickle
 import re
 import pandas as pd
 from datetime import datetime, timedelta
 import os
-import uvicorn
 import logging
 
-app = FastAPI()
+app = Flask(__name__)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -28,14 +26,6 @@ except Exception as e:
     logging.error(f"Error loading pickle file: {e}")
     raise Exception(f"Error loading pickle file: {e}")
 
-class ConsumptionRequest(BaseModel):
-    datetime: datetime
-    weather: str
-
-class PredictionOutput(BaseModel):
-    datetime: datetime
-    predicted_consumption: float
-
 def extract_temp(x):
     matches = re.findall(r'\d+\.\d+', x)
     return float(matches[0]) if matches else None
@@ -54,47 +44,44 @@ def prepare_input_data(start_date, weather):
     future_data = future_data.dropna()  # Drop rows with missing weather data
     return future_data[['hour', 'dayofweek', 'weather']], future_dates
 
-@app.get('/')
+@app.route('/')
 def index():
-    return {'message': 'Hello, world'}
+    return jsonify({'message': 'Hello, world'})
 
-@app.get('/{name}')
+@app.route('/<name>')
 def get_name(name: str):
-    return {'welcome to my model': f'Hello, {name}'}
+    return jsonify({'welcome to my model': f'Hello, {name}'})
 
-@app.post("/predict/", response_model=list[PredictionOutput])
-async def predict_next_week_consumption(request: ConsumptionRequest):
+@app.route('/predict/', methods=['POST'])
+def predict_next_week_consumption():
     # Data preprocessing for prediction
+    data = request.get_json()
     try:
-        start_date = request.datetime
-        weather = request.weather
+        start_date = datetime.fromisoformat(data['datetime'])
+        weather = data['weather']
         
         future_data, future_dates = prepare_input_data(start_date, weather)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid input: {e}")
+        return jsonify({'detail': f"Invalid input: {e}"}), 400
 
     if future_data.empty:
-        raise HTTPException(status_code=400, detail="Missing or invalid weather data")
+        return jsonify({'detail': "Missing or invalid weather data"}), 400
 
     # Prediction
     try:
         predicted_consumption = model.predict(future_data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Prediction error: {e}")
+        return jsonify({'detail': f"Prediction error: {e}"}), 500
 
     results = [
-        PredictionOutput(datetime=date, predicted_consumption=prediction)
-        for date, prediction in zip(future_dates, predicted_consumption)
+        {
+            'datetime': date.isoformat(),
+            'predicted_consumption': prediction
+        } for date, prediction in zip(future_dates, predicted_consumption)
     ]
 
-    return results
-
-port = int(os.environ.get("PORT", 8000))
+    return jsonify(results)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=port)
-
-   
-
-
-   
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host="0.0.0.0", port=port)
