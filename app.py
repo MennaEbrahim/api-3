@@ -73,7 +73,7 @@ async def predict_next_week_consumption(request: ConsumptionRequest):
     ]
 
     return results
-port = int(os.environ.get("PORT", 8000))
+port = int(os.environ.get("PORT", 10000))
 
 @app.get('/')
 def read_root():
