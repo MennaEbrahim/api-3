@@ -6,12 +6,27 @@ import pandas as pd
 from datetime import datetime, timedelta
 import os
 import uvicorn
+import logging
 
 app = FastAPI()
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+
 # Load the pre-trained model
-with open("model4.pkl", "rb") as pickle_in:
-    model = pickle.load(pickle_in)
+model_file_path = "model4.pkl"
+
+if not os.path.exists(model_file_path):
+    logging.error(f"Pickle file not found: {model_file_path}")
+    raise Exception(f"Pickle file not found: {model_file_path}")
+
+try:
+    with open(model_file_path, "rb") as pickle_in:
+        model = pickle.load(pickle_in)
+        logging.info("Model loaded successfully")
+except Exception as e:
+    logging.error(f"Error loading pickle file: {e}")
+    raise Exception(f"Error loading pickle file: {e}")
 
 class ConsumptionRequest(BaseModel):
     datetime: datetime
@@ -73,10 +88,13 @@ async def predict_next_week_consumption(request: ConsumptionRequest):
     ]
 
     return results
-port = int(os.environ.get("PORT", 10000))
 
-@app.get('/')
-def read_root():
-    return {"Hello": "World"}
+port = int(os.environ.get("PORT", 8000))
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+   
+
+
+   
